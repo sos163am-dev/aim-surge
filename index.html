@@ -8,6 +8,7 @@
 <meta property="og:title" content="AIM SURGE">
 <meta property="og:description" content="Everyone trains on the SAME target sequence today. Beat my score.">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='36' fill='none' stroke='%23ff2d78' stroke-width='9'/><rect x='46' y='18' width='8' height='22' fill='%2300ffc8'/><rect x='46' y='60' width='8' height='22' fill='%2300ffc8'/><rect x='18' y='46' width='22' height='8' fill='%2300ffc8'/><rect x='60' y='46' width='22' height='8' fill='%2300ffc8'/></svg>">
+<script src="https://sdk.crazygames.com/crazygames-sdk-v3.js"></script>
 <style>
   * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; user-select:none; }
   html,body { width:100%; height:100%; overflow:hidden; background:#04060c; font-family:'Segoe UI',system-ui,sans-serif; }
@@ -201,6 +202,33 @@ loadBests();
   }
 })();
 const dayStreak = LS.get('as_streak', 1);
+
+// ---------- CrazyGames SDK (safe no-op outside their platform) ----------
+const CG = { sdk: null, lastAd: 0 };
+window.addEventListener('load', async () => {
+  try {
+    if (window.CrazyGames && window.CrazyGames.SDK) {
+      await window.CrazyGames.SDK.init();
+      CG.sdk = window.CrazyGames.SDK;
+    }
+  } catch(e){}
+});
+function cgGameplayStart(){ try { CG.sdk && CG.sdk.game.gameplayStart(); } catch(e){} }
+function cgGameplayStop(){ try { CG.sdk && CG.sdk.game.gameplayStop(); } catch(e){} }
+function cgHappy(){ try { CG.sdk && CG.sdk.game.happytime(); } catch(e){} }
+function cgMidgameAd(){
+  const nowMs = Date.now();
+  if (!CG.sdk || nowMs - CG.lastAd < 90000) return;   // максимум одна реклама в 90 сек
+  CG.lastAd = nowMs;
+  const wasMuted = muted;
+  try {
+    CG.sdk.ad.requestAd('midgame', {
+      adStarted:  () => { muted = true; },
+      adFinished: () => { muted = wasMuted; },
+      adError:    () => { muted = wasMuted; }
+    });
+  } catch(e) { muted = wasMuted; }
+}
 
 // ---------- canvas ----------
 const canvas = document.getElementById('game');
@@ -408,9 +436,11 @@ function beginPlay(){
   const t = performance.now();
   for (const tg of targets) tg.born = t;
   state = 'play';
+  cgGameplayStart();
 }
 function endRun(){
   state = 'results';
+  cgGameplayStop();
   document.exitPointerLock && document.exitPointerLock();
   document.body.classList.add('menuMode');
   show(hudEl, false); sndEnd();
@@ -441,7 +471,8 @@ function endRun(){
              : acc >= 55 ? ['solid warm-up.', 'one more run — beat it.', 'flicks are getting there.']
              : ['slow is smooth, smooth is fast.', 'lower your sens, maybe?', 'warm-up round. next one counts.'];
   document.getElementById('rMsg').textContent = msgs[Math.floor(Math.random() * msgs.length)];
-  setTimeout(() => show(resultsEl, true), 350);
+  if (isNew) cgHappy();
+  setTimeout(() => { show(resultsEl, true); cgMidgameAd(); }, 350);
 }
 function toMenu(){
   state = 'menu';
@@ -458,6 +489,7 @@ document.getElementById('resumeBtn').addEventListener('click', () => {
   document.body.classList.remove('menuMode');
   lockPointer();
   state = 'play';
+  cgGameplayStart();
 });
 document.getElementById('quitBtn').addEventListener('click', toMenu);
 
@@ -489,7 +521,7 @@ function lockPointer(){        // raw input (no OS acceleration) when supported 
 }
 document.addEventListener('pointerlockchange', () => {
   locked = document.pointerLockElement === canvas;
-  if (!locked && state === 'play') { state = 'pause'; document.body.classList.add('menuMode'); show(pauseEl, true); }
+  if (!locked && state === 'play') { state = 'pause'; cgGameplayStop(); document.body.classList.add('menuMode'); show(pauseEl, true); }
 });
 window.addEventListener('mousemove', (e) => {
   if (locked && (state === 'play' || state === 'count')) {
