@@ -1,0 +1,701 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>AIM SURGE — CS2-style aim trainer. Same targets for everyone. Today.</title>
+<meta name="description" content="60-second gridshot aim trainer with real FPS mouse feel. Everyone in the world gets the SAME target sequence today. Track accuracy, reaction time, streaks.">
+<meta property="og:title" content="AIM SURGE">
+<meta property="og:description" content="Everyone trains on the SAME target sequence today. Beat my score.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='36' fill='none' stroke='%23ff2d78' stroke-width='9'/><rect x='46' y='18' width='8' height='22' fill='%2300ffc8'/><rect x='46' y='60' width='8' height='22' fill='%2300ffc8'/><rect x='18' y='46' width='22' height='8' fill='%2300ffc8'/><rect x='60' y='46' width='22' height='8' fill='%2300ffc8'/></svg>">
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; user-select:none; }
+  html,body { width:100%; height:100%; overflow:hidden; background:#04060c; font-family:'Segoe UI',system-ui,sans-serif; }
+  #game { position:fixed; inset:0; display:block; cursor:none; touch-action:none; }
+  body.menuMode #game { cursor:default; }
+  #hud { position:fixed; top:10px; left:0; right:0; display:flex; justify-content:center; gap:34px; pointer-events:none; z-index:5; }
+  .hstat { text-align:center; }
+  .hstat .v { font-size:30px; font-weight:800; color:#fff; text-shadow:0 0 14px #00ffc8; }
+  .hstat .l { font-size:10px; color:#7fa8b8; text-transform:uppercase; letter-spacing:2px; }
+  #timeV { font-size:42px !important; text-shadow:0 0 18px #ff2d78 !important; }
+  #streakLine { position:fixed; top:104px; left:0; right:0; text-align:center; font-size:15px; font-weight:800; color:#ffd24d; text-shadow:0 0 12px #ff8800; letter-spacing:3px; pointer-events:none; z-index:5; height:20px; }
+  .overlay { position:fixed; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; z-index:10; background:radial-gradient(ellipse at center,rgba(6,12,24,.6) 0%,rgba(3,5,10,.94) 100%); color:#fff; text-align:center; padding:20px; }
+  .hidden { display:none !important; }
+  h1 { font-size:clamp(36px,8.5vw,70px); font-weight:900; letter-spacing:6px; background:linear-gradient(90deg,#00ffc8,#ff2d78,#00ffc8); background-size:200%; -webkit-background-clip:text; background-clip:text; color:transparent; animation:shine 3s linear infinite; filter:drop-shadow(0 0 20px rgba(0,255,200,.45)); }
+  @keyframes shine { to { background-position:200%; } }
+  .tag { color:#8fd8c8; font-size:15px; margin:8px 0 20px; letter-spacing:1px; }
+  .daily { border:1px solid rgba(0,255,200,.35); border-radius:14px; padding:12px 22px; margin-bottom:18px; background:rgba(0,255,200,.05); }
+  .daily b { color:#00ffc8; }
+  .daily .cd { color:#ff7fb0; font-size:13px; margin-top:4px; }
+  .stats { display:flex; gap:24px; margin-bottom:20px; flex-wrap:wrap; justify-content:center; }
+  .stat { text-align:center; min-width:74px; }
+  .stat .v { font-size:28px; font-weight:800; color:#fff; text-shadow:0 0 14px #ff2d78; }
+  .stat .l { font-size:10px; color:#7f9cb0; text-transform:uppercase; letter-spacing:2px; margin-top:2px; }
+  .cta { font-size:20px; font-weight:700; color:#04060c; background:linear-gradient(90deg,#00ffc8,#4dff88); border:none; border-radius:40px; padding:16px 46px; cursor:pointer; letter-spacing:2px; box-shadow:0 0 30px rgba(0,255,200,.5); animation:pulse 1.4s ease-in-out infinite; }
+  @keyframes pulse { 50% { transform:scale(1.06); box-shadow:0 0 46px rgba(0,255,200,.8);} }
+  .howto { margin-top:18px; color:#7f9cb0; font-size:13px; line-height:1.8; }
+  .btnrow { display:flex; gap:12px; margin-top:16px; flex-wrap:wrap; justify-content:center; }
+  .btn2 { font-size:14px; font-weight:600; color:#cfffee; background:rgba(255,255,255,.06); border:1px solid rgba(0,255,200,.4); border-radius:30px; padding:11px 24px; cursor:pointer; letter-spacing:1px; }
+  .btn2:active { background:rgba(0,255,200,.2); }
+  #sensBox, #sensBox2 { display:flex; align-items:center; gap:12px; margin-bottom:14px; color:#8fd8c8; font-size:13px; }
+  #sens { width:180px; accent-color:#00ffc8; cursor:pointer; }
+  #sensVal { color:#fff; font-weight:700; min-width:34px; }
+  #rScore { font-size:72px; font-weight:900; color:#fff; text-shadow:0 0 26px #00ffc8,0 0 60px #ff2d78; }
+  #newbest { color:#4dff88; font-weight:800; letter-spacing:3px; font-size:15px; height:22px; text-shadow:0 0 14px #4dff88; }
+  #cdown { position:fixed; inset:0; display:flex; align-items:center; justify-content:center; font-size:120px; font-weight:900; color:#00ffc8; text-shadow:0 0 40px #00ffc8; z-index:9; pointer-events:none; }
+  #toast { position:fixed; bottom:26px; left:50%; transform:translateX(-50%); background:rgba(0,255,200,.92); color:#04060c; font-weight:700; padding:10px 26px; border-radius:30px; font-size:14px; z-index:50; transition:opacity .4s; opacity:0; pointer-events:none; }
+  #streakChip { position:fixed; top:14px; left:16px; z-index:20; color:#ffd24d; font-size:13px; font-weight:700; text-shadow:0 0 10px #ff8800; letter-spacing:1px; pointer-events:none; }
+  #mute { position:fixed; top:12px; right:16px; z-index:20; font-size:20px; background:none; border:none; cursor:pointer; filter:drop-shadow(0 0 6px #00ffc8); }
+  #shop { display:flex; gap:12px; margin-bottom:18px; }
+  .sw { width:46px; height:46px; border-radius:50%; cursor:pointer; border:2px solid rgba(255,255,255,.25); display:flex; align-items:center; justify-content:center; font-size:9px; font-weight:700; color:#fff; text-shadow:0 1px 3px #000; padding:0; }
+  .sw.sel { outline:3px solid #fff; }
+  .sw.locked { opacity:.55; }
+  .mbtn.sel { background:rgba(0,255,200,.22); border-color:#00ffc8; color:#fff; box-shadow:0 0 14px rgba(0,255,200,.45); }
+</style>
+</head>
+<body class="menuMode">
+<canvas id="game"></canvas>
+
+<div id="hud" class="hidden">
+  <div class="hstat"><div class="v" id="scoreV">0</div><div class="l">score</div></div>
+  <div class="hstat"><div class="v" id="timeV">60.0</div><div class="l">time</div></div>
+  <div class="hstat"><div class="v" id="accV">100%</div><div class="l">accuracy</div></div>
+</div>
+<div id="streakLine"></div>
+<div id="streakChip"></div>
+<button id="mute">🔊</button>
+<div id="cdown" class="hidden"></div>
+
+<div id="menu" class="overlay">
+  <h1>AIM SURGE</h1>
+  <div class="tag">60-second warm-up &middot; raw input &middot; 1:1 sens with CS2 / Valorant / Apex / OW2</div>
+  <div class="daily">
+    <div>🌍 Everyone on Earth trains on the <b>SAME target sequence</b> today</div>
+    <div class="cd">new sequence in <span id="cd1">--:--</span></div>
+  </div>
+  <div class="stats">
+    <div class="stat"><div class="v" id="mTodayBest">0</div><div class="l">today's best</div></div>
+    <div class="stat"><div class="v" id="mAllBest">0</div><div class="l">all-time</div></div>
+    <div class="stat"><div class="v" id="mStreakD">0</div><div class="l">day streak</div></div>
+  </div>
+  <div class="btnrow" style="margin:0 0 8px">
+    <button class="btn2 mbtn" data-mode="grid">🎯 GRIDSHOT</button>
+    <button class="btn2 mbtn" data-mode="flick">⚡ FLICK</button>
+    <button class="btn2 mbtn" data-mode="track">🌀 TRACK</button>
+    <button class="btn2 mbtn" data-mode="head">💀 HEADLINE</button>
+  </div>
+  <div id="modeDesc" style="color:#8fd8c8;font-size:12px;margin-bottom:12px;min-height:16px;letter-spacing:.5px"></div>
+  <div class="btnrow" style="margin:0 0 14px"><span class="btn2" id="coinTotal" style="cursor:default">🪙 0</span></div>
+  <div id="shop"></div>
+  <div id="sensBox">SENSITIVITY <input type="range" id="sens" min="0.05" max="6" step="0.05"><span id="sensVal">2.0</span></div>
+  <div style="color:#4dff88;font-size:12px;margin:0 0 16px;letter-spacing:.5px">✔ 1:1 sensitivity match — same mouse feel as CS2, Valorant, Apex &amp; OW2 (same DPI)</div>
+  <button class="cta" id="playBtn">🎯 START — CLICK TO LOCK MOUSE</button>
+  <div class="howto" id="howtoLine">mouse — aim &nbsp;·&nbsp; <b style="color:#00ffc8">LMB</b> — shoot &nbsp;·&nbsp; ESC — pause<br>hit streaks multiply score &middot; misses cost 50 &middot; every hit = 🪙 for crosshair colors</div>
+</div>
+
+<div id="pause" class="overlay hidden">
+  <h1 style="font-size:44px">PAUSED</h1>
+  <div class="tag">mouse unlocked</div>
+  <button class="cta" id="resumeBtn">RESUME</button>
+  <div class="btnrow"><button class="btn2" id="quitBtn">back to menu</button></div>
+</div>
+
+<div id="results" class="overlay hidden">
+  <div id="newbest"></div>
+  <div id="rRank" style="font-size:26px;font-weight:900;letter-spacing:5px;margin-bottom:2px"></div>
+  <div id="rScore">0</div>
+  <div class="tag" id="rMsg">nice grouping.</div>
+  <div id="coinsEarned" style="color:#ffd24d;font-weight:800;margin-bottom:8px;text-shadow:0 0 10px #ff8800"></div>
+  <div class="stats">
+    <div class="stat"><div class="v" id="rAcc">0%</div><div class="l">accuracy</div></div>
+    <div class="stat"><div class="v" id="rHits">0</div><div class="l">hits</div></div>
+    <div class="stat"><div class="v" id="rReact">0</div><div class="l">avg react ms</div></div>
+    <div class="stat"><div class="v" id="rStreak">0</div><div class="l">best streak</div></div>
+  </div>
+  <div class="stats">
+    <div class="stat"><div class="v" id="rTodayBest">0</div><div class="l">today's best</div></div>
+    <div class="stat"><div class="v" id="rAllBest">0</div><div class="l">all-time</div></div>
+    <div class="stat"><div class="v" id="rStreakD">0</div><div class="l">day streak</div></div>
+  </div>
+  <button class="cta" id="againBtn">TRAIN AGAIN</button>
+  <div class="btnrow">
+    <button class="btn2" id="shareBtn">📣 Challenge a friend</button>
+    <button class="btn2" id="copyBtn">🔗 Copy link + score</button>
+  </div>
+  <div class="howto">same sequence for everyone until <span id="cd2">--:--</span></div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+'use strict';
+/* ============================================================
+   AIM SURGE — CS2-style gridshot aim trainer.
+   Pointer Lock FPS aiming, 3D projected room, daily seeded
+   target sequence (same for everyone), streaks, share.
+   Single file. No backend. No assets.
+   ============================================================ */
+
+// ---------- daily seed ----------
+const now = new Date();
+const dateStr = now.getUTCFullYear() + '-' + String(now.getUTCMonth()+1).padStart(2,'0') + '-' + String(now.getUTCDate()).padStart(2,'0');
+function hashStr(s){ let h = 2166136261; for (let i=0;i<s.length;i++){ h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return h >>> 0; }
+function mulberry32(a){ return function(){ a |= 0; a = (a + 0x6D2B79F5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
+const DAILY_SEED = hashStr('aim-surge-' + dateStr);
+
+// ---------- persistence ----------
+const LS = {
+  get(k, d){ try { const v = localStorage.getItem(k); return v === null ? d : JSON.parse(v); } catch(e){ return d; } },
+  set(k, v){ try { localStorage.setItem(k, JSON.stringify(v)); } catch(e){} }
+};
+let sens     = LS.get('as_sens', 2.0);
+let coins    = LS.get('as_coins', 0);
+let owned    = LS.get('as_owned', [0]);
+let themeIdx = LS.get('as_theme', 0);
+let modeSel  = LS.get('as_mode', 'grid');
+const THEMES = [
+  { n:'GREEN',   c:'#00ff5e', cost:0 },
+  { n:'CYAN',    c:'#00e5ff', cost:200 },
+  { n:'MAGENTA', c:'#ff2dd4', cost:500 },
+  { n:'GOLD',    c:'#ffd24d', cost:1000 },
+  { n:'WHITE',   c:'#ffffff', cost:2000 }
+];
+if (!owned.includes(themeIdx)) themeIdx = 0;
+const MODE_ORDER = ['grid', 'flick', 'track', 'head'];
+const MODE_LABEL = {
+  grid:  '🎯 GRIDSHOT — 3 targets',
+  flick: '⚡ FLICK — 1 fast target',
+  track: '🌀 TRACK — hold on the orb',
+  head:  '💀 HEADLINE — head-height flicks'
+};
+if (!MODE_ORDER.includes(modeSel)) modeSel = 'grid';
+// Voltaic-style benchmark ranks
+const RANKS = [
+  { n:'IRON', c:'#9aa4ad' }, { n:'BRONZE', c:'#cd7f32' }, { n:'SILVER', c:'#d7d7e0' },
+  { n:'GOLD', c:'#ffd700' }, { n:'PLATINUM', c:'#4de3c0' }, { n:'DIAMOND', c:'#4dc3ff' },
+  { n:'MASTER', c:'#c04dff' }, { n:'NOVA', c:'#ff2d78' }
+];
+const RANK_CUTS = {
+  grid:  [1500, 3500, 5500, 7500, 9500, 11500, 14000],
+  flick: [800, 2000, 3200, 4500, 6000, 7500, 9000],
+  track: [800, 1600, 2400, 3200, 4000, 4700, 5400],
+  head:  [1200, 2800, 4500, 6200, 8000, 10000, 12000]
+};
+function rankFor(s){ let r = 0; for (const c of RANK_CUTS[modeSel]) if (s >= c) r++; return RANKS[r]; }
+let allBest = 0, todayBest = 0;
+function loadBests(){
+  todayBest = LS.get('as_best_' + modeSel + '_' + dateStr, 0);
+  allBest   = LS.get('as_best_all_' + modeSel, 0);
+}
+loadBests();
+
+// ---------- day streak ----------
+(function updateStreak(){
+  const last = LS.get('as_last_day', '');
+  let streak = LS.get('as_streak', 0);
+  if (last !== dateStr) {
+    const y = new Date(now); y.setUTCDate(y.getUTCDate() - 1);
+    const yStr = y.getUTCFullYear() + '-' + String(y.getUTCMonth()+1).padStart(2,'0') + '-' + String(y.getUTCDate()).padStart(2,'0');
+    streak = (last === yStr) ? streak + 1 : 1;
+    LS.set('as_streak', streak); LS.set('as_last_day', dateStr);
+  }
+})();
+const dayStreak = LS.get('as_streak', 1);
+
+// ---------- canvas ----------
+const canvas = document.getElementById('game');
+const ctx = canvas.getContext('2d');
+let W = 0, H = 0;
+function resize(){
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  W = window.innerWidth; H = window.innerHeight;
+  canvas.width = W * dpr; canvas.height = H * dpr;
+  canvas.style.width = W + 'px'; canvas.style.height = H + 'px';
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+}
+window.addEventListener('resize', resize); resize();
+
+// ---------- 3D camera / projection ----------
+const FOV = 100 * Math.PI / 180;      // horizontal-ish feel via vertical fov below
+let yaw = 0, pitch = 0;
+function focal(){ return (H / 2) / Math.tan((FOV * 0.62) / 2); }
+function project(px, py, pz){
+  const cy = Math.cos(yaw), sy = Math.sin(yaw);
+  let x = px * cy - pz * sy;
+  let z1 = px * sy + pz * cy;
+  const cp = Math.cos(pitch), sp = Math.sin(pitch);
+  let y = py * cp - z1 * sp;
+  let z = py * sp + z1 * cp;
+  if (z < 0.15) return null;
+  const f = focal();
+  return { x: W/2 + f * x / z, y: H/2 - f * y / z, s: f / z };
+}
+
+// ---------- room (aim-map style grid) ----------
+const lines = [];
+(function buildRoom(){
+  const Z = 15, XW = 11, YT = 6.5, YB = -5.5, Z0 = 1.5;
+  for (let x = -XW; x <= XW; x += 2.2) lines.push([x, YB, Z, x, YT, Z, 1]);          // front wall vertical
+  for (let y = YB; y <= YT; y += 2.0) lines.push([-XW, y, Z, XW, y, Z, 1]);          // front wall horizontal
+  for (let x = -XW; x <= XW; x += 2.2) lines.push([x, YB, Z0, x, YB, Z, 0.55]);      // floor
+  for (let z = Z0; z <= Z; z += 2.25) lines.push([-XW, YB, z, XW, YB, z, 0.55]);
+  for (let x = -XW; x <= XW; x += 2.2) lines.push([x, YT, Z0, x, YT, Z, 0.35]);      // ceiling
+  for (let z = Z0; z <= Z; z += 2.25) lines.push([-XW, YT, z, XW, YT, z, 0.35]);
+  for (const sx of [-XW, XW]) {                                                       // side walls
+    for (let z = Z0; z <= Z; z += 2.25) lines.push([sx, YB, z, sx, YT, z, 0.45]);
+    for (let y = YB; y <= YT; y += 2.0) lines.push([sx, y, Z0, sx, y, Z, 0.45]);
+  }
+})();
+
+// ---------- targets ----------
+const T_R = 0.62, N_TARGETS = 3;
+function tRad(){ return modeSel === 'head' ? 0.5 : modeSel === 'track' ? 0.78 : T_R; }
+let rng, targets, trackPath = null;
+function spawnPos(){
+  for (let tries = 0; tries < 40; tries++) {
+    const x = -7 + rng() * 14, y = -3 + rng() * 7.5, z = 13.5;
+    let ok = true;
+    for (const t of targets) {
+      const dx = t.x - x, dy = t.y - y;
+      if (dx*dx + dy*dy < 2.4 * 2.4) { ok = false; break; }
+    }
+    if (ok) return { x, y, z };
+  }
+  return { x: -7 + rng() * 14, y: -3 + rng() * 7.5, z: 13.5 };
+}
+function addTarget(){
+  const p = modeSel === 'head' ? { x: -8 + rng() * 16, y: 0.4, z: 13.5 } : spawnPos();
+  targets.push({ x: p.x, y: p.y, z: p.z, born: performance.now(), pop: 0, on: false });
+}
+
+// ---------- game state ----------
+const RUN_TIME = 60;
+let state = 'menu';        // menu | count | play | pause | results
+let timeLeft = RUN_TIME, score = 0, shots = 0, hits = 0, streak = 0, bestStreak = 0;
+let reactSum = 0, shake = 0, hitFlash = 0, missFlash = 0, cdVal = 0, cdT = 0;
+let onTime = 0, trackTick = 0, lmb = false, lastRank = null;
+let particles = [], rings = [];
+let isTouch = ('ontouchstart' in window) && !window.matchMedia('(pointer:fine)').matches;
+
+function resetRun(){
+  rng = mulberry32(DAILY_SEED + ({ grid:0, flick:777, track:555, head:333 })[modeSel]);
+  targets = []; particles = []; rings = [];
+  trackPath = {
+    ax: 4.5 + rng() * 2, ay: 1.5 + rng() * 1.1,
+    w1: 0.9 + rng() * 0.5, w2: 1.3 + rng() * 0.7,
+    p1: rng() * 6.283, p2: rng() * 6.283
+  };
+  const nT = modeSel === 'grid' ? N_TARGETS : 1;
+  for (let i = 0; i < nT; i++) addTarget();
+  timeLeft = RUN_TIME; score = 0; shots = 0; hits = 0; streak = 0; bestStreak = 0;
+  reactSum = 0; yaw = 0; pitch = 0; shake = 0; onTime = 0; trackTick = 0;
+}
+
+// ---------- audio ----------
+let AC = null, muted = LS.get('as_muted', false);
+document.getElementById('mute').textContent = muted ? '🔇' : '🔊';
+function ac(){ if (!AC) { try { AC = new (window.AudioContext || window.webkitAudioContext)(); } catch(e){} } if (AC && AC.state === 'suspended') AC.resume(); return AC; }
+function blip(freq, dur, type, vol, when){
+  if (muted || !ac()) return;
+  const t0 = AC.currentTime + (when || 0);
+  const o = AC.createOscillator(), g = AC.createGain();
+  o.type = type || 'square'; o.frequency.value = freq;
+  g.gain.setValueAtTime(vol || 0.08, t0);
+  g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+  o.connect(g); g.connect(AC.destination); o.start(t0); o.stop(t0 + dur);
+}
+function noiseBurst(dur, vol, freq){
+  if (muted || !ac()) return;
+  const b = AC.createBuffer(1, AC.sampleRate * dur, AC.sampleRate);
+  const d = b.getChannelData(0);
+  for (let i = 0; i < d.length; i++) d[i] = (Math.random()*2-1) * (1 - i/d.length);
+  const s = AC.createBufferSource(), g = AC.createGain(), f = AC.createBiquadFilter();
+  f.type = 'bandpass'; f.frequency.value = freq || 1800; f.Q.value = 0.8;
+  g.gain.value = vol; s.buffer = b; s.connect(f); f.connect(g); g.connect(AC.destination); s.start();
+}
+function sndShot(){ noiseBurst(0.12, 0.22, 2400); blip(140, 0.08, 'square', 0.1); }
+function sndHit(){ blip(660 + Math.min(streak, 20) * 28, 0.07, 'sine', 0.12); blip(990 + Math.min(streak, 20) * 28, 0.1, 'sine', 0.1, 0.05); }
+function sndMiss(){ blip(110, 0.18, 'sawtooth', 0.12); }
+function sndCd(final){ blip(final ? 880 : 440, final ? 0.25 : 0.1, 'sine', 0.12); }
+function sndEnd(){ blip(523, 0.15, 'triangle', 0.12); blip(659, 0.15, 'triangle', 0.12, 0.14); blip(784, 0.3, 'triangle', 0.12, 0.28); }
+document.getElementById('mute').addEventListener('click', (e) => {
+  e.stopPropagation();
+  muted = !muted; LS.set('as_muted', muted);
+  document.getElementById('mute').textContent = muted ? '🔇' : '🔊';
+});
+
+// ---------- UI ----------
+const menuEl = document.getElementById('menu'), pauseEl = document.getElementById('pause');
+const resultsEl = document.getElementById('results'), hudEl = document.getElementById('hud');
+const cdEl = document.getElementById('cdown');
+function show(el, on){ el.classList.toggle('hidden', !on); }
+function toast(t){ const el = document.getElementById('toast'); el.textContent = t; el.style.opacity = 1; setTimeout(() => el.style.opacity = 0, 1800); }
+function fmtCd(){
+  const next = new Date(now); next.setUTCHours(24, 0, 0, 0);
+  let s = Math.max(0, Math.floor((next - Date.now()) / 1000));
+  return Math.floor(s / 3600) + 'h ' + String(Math.floor((s % 3600) / 60)).padStart(2, '0') + 'm';
+}
+setInterval(() => {
+  document.getElementById('cd1').textContent = fmtCd();
+  document.getElementById('cd2').textContent = fmtCd();
+}, 1000);
+function renderShop(){
+  const shop = document.getElementById('shop');
+  shop.innerHTML = '';
+  THEMES.forEach((th, i) => {
+    const b = document.createElement('button');
+    b.className = 'sw' + (i === themeIdx ? ' sel' : '') + (owned.includes(i) ? '' : ' locked');
+    b.style.background = 'radial-gradient(circle at 35% 35%, #ffffff22, transparent), ' + th.c;
+    b.textContent = owned.includes(i) ? '' : th.cost + '🪙';
+    b.title = th.n + ' crosshair';
+    b.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (owned.includes(i)) { themeIdx = i; LS.set('as_theme', i); }
+      else if (coins >= th.cost) {
+        coins -= th.cost; owned.push(i); themeIdx = i;
+        LS.set('as_coins', coins); LS.set('as_owned', owned); LS.set('as_theme', i);
+        toast('Unlocked ' + th.n + ' crosshair! 🎨');
+      } else toast('Need ' + (th.cost - coins) + ' more 🪙 — every hit pays!');
+      refreshMenu();
+    });
+    shop.appendChild(b);
+  });
+}
+function refreshMenu(){
+  loadBests();
+  document.getElementById('mTodayBest').textContent = todayBest;
+  document.getElementById('mAllBest').textContent = allBest;
+  document.getElementById('mStreakD').textContent = dayStreak + '🔥';
+  document.getElementById('streakChip').textContent = '🔥 ' + dayStreak + ' day' + (dayStreak > 1 ? 's' : '');
+  document.getElementById('coinTotal').textContent = '🪙 ' + coins;
+  document.querySelectorAll('.mbtn').forEach((b) => b.classList.toggle('sel', b.dataset.mode === modeSel));
+  document.getElementById('modeDesc').textContent = MODE_DESC[modeSel];
+  document.getElementById('cd1').textContent = fmtCd();
+  document.getElementById('sens').value = sens;
+  document.getElementById('sensVal').textContent = Number(sens).toFixed(2) + ' ≈ CS2 ' + (sens / 0.17453).toFixed(2);
+  renderShop();
+}
+const MODE_DESC = {
+  grid:  '3 targets up at all times — pure clicking speed',
+  flick: '1 fast target — hit it within 1.5s or lose points',
+  track: 'hold LMB and keep the crosshair on the moving orb',
+  head:  'head-height targets only — CS2-style horizontal flicks'
+};
+document.querySelectorAll('.mbtn').forEach((b) => b.addEventListener('click', (e) => {
+  e.stopPropagation();
+  modeSel = b.dataset.mode;
+  LS.set('as_mode', modeSel);
+  refreshMenu();
+}));
+refreshMenu();
+document.getElementById('sens').addEventListener('input', (e) => {
+  sens = parseFloat(e.target.value); LS.set('as_sens', sens);
+  document.getElementById('sensVal').textContent = sens.toFixed(2) + ' ≈ CS2 ' + (sens / 0.17453).toFixed(2);
+});
+
+// ---------- flow ----------
+function startRun(){
+  resetRun();
+  show(menuEl, false); show(resultsEl, false); show(pauseEl, false);
+  document.body.classList.remove('menuMode');
+  lockPointer();
+  state = 'count'; cdVal = 3; cdT = 0;
+  show(cdEl, true); cdEl.textContent = '3'; sndCd(false);
+}
+function beginPlay(){
+  show(cdEl, false); show(hudEl, true);
+  // re-stamp target birth so reaction time starts at GO
+  const t = performance.now();
+  for (const tg of targets) tg.born = t;
+  state = 'play';
+}
+function endRun(){
+  state = 'results';
+  document.exitPointerLock && document.exitPointerLock();
+  document.body.classList.add('menuMode');
+  show(hudEl, false); sndEnd();
+  const isTrack = modeSel === 'track';
+  const acc = isTrack ? Math.round(onTime / RUN_TIME * 100) : (shots ? Math.round(hits / shots * 100) : 0);
+  const react = hits ? Math.round(reactSum / hits) : 0;
+  const earned = isTrack ? Math.floor(onTime) : hits;
+  coins += earned; LS.set('as_coins', coins);
+  document.getElementById('coinsEarned').textContent = earned > 0 ? '+' + earned + ' 🪙  (total: ' + coins + ')' : '';
+  lastRank = rankFor(score);
+  const rkEl = document.getElementById('rRank');
+  rkEl.textContent = '◆ ' + lastRank.n + ' ◆';
+  rkEl.style.color = lastRank.c;
+  rkEl.style.textShadow = '0 0 18px ' + lastRank.c;
+  let isNew = '';
+  if (score > todayBest) { todayBest = score; LS.set('as_best_' + modeSel + '_' + dateStr, score); isNew = '★ TODAY\'S NEW BEST ★'; }
+  if (score > allBest)   { allBest = score;  LS.set('as_best_all_' + modeSel, score);             isNew = '🏆 ALL-TIME RECORD 🏆'; }
+  document.getElementById('newbest').textContent = isNew;
+  document.getElementById('rScore').textContent = score;
+  document.getElementById('rAcc').textContent = acc + '%';
+  document.getElementById('rHits').textContent = isTrack ? onTime.toFixed(1) + 's' : hits;
+  document.getElementById('rReact').textContent = isTrack ? '—' : react;
+  document.getElementById('rStreak').textContent = bestStreak;
+  document.getElementById('rTodayBest').textContent = todayBest;
+  document.getElementById('rAllBest').textContent = allBest;
+  document.getElementById('rStreakD').textContent = dayStreak + '🔥';
+  const msgs = acc >= 80 ? ['insane grouping.', 'your crosshair placement is clean.', 'ranked-ready.']
+             : acc >= 55 ? ['solid warm-up.', 'one more run — beat it.', 'flicks are getting there.']
+             : ['slow is smooth, smooth is fast.', 'lower your sens, maybe?', 'warm-up round. next one counts.'];
+  document.getElementById('rMsg').textContent = msgs[Math.floor(Math.random() * msgs.length)];
+  setTimeout(() => show(resultsEl, true), 350);
+}
+function toMenu(){
+  state = 'menu';
+  document.exitPointerLock && document.exitPointerLock();
+  document.body.classList.add('menuMode');
+  show(pauseEl, false); show(resultsEl, false); show(hudEl, false);
+  refreshMenu(); show(menuEl, true);
+}
+
+document.getElementById('playBtn').addEventListener('click', startRun);
+document.getElementById('againBtn').addEventListener('click', startRun);
+document.getElementById('resumeBtn').addEventListener('click', () => {
+  show(pauseEl, false);
+  document.body.classList.remove('menuMode');
+  lockPointer();
+  state = 'play';
+});
+document.getElementById('quitBtn').addEventListener('click', toMenu);
+
+// ---------- share ----------
+function shareText(){
+  const acc = modeSel === 'track' ? Math.round(onTime / RUN_TIME * 100) : (shots ? Math.round(hits / shots * 100) : 0);
+  const m = ({ grid:'GRIDSHOT', flick:'FLICK', track:'TRACK', head:'HEADLINE' })[modeSel];
+  const rk = lastRank ? ' · rank ' + lastRank.n : '';
+  return '🎯 AIM SURGE [' + m + rk + '] — ' + score + ' pts, ' + acc + '% accuracy on today\'s sequence. Everyone trains on the SAME targets today. Beat me?';
+}
+document.getElementById('shareBtn').addEventListener('click', async () => {
+  const data = { title: 'AIM SURGE', text: shareText(), url: location.href };
+  if (navigator.share) { try { await navigator.share(data); } catch(e){} }
+  else { try { await navigator.clipboard.writeText(shareText() + ' ' + location.href); toast('Copied! Send it to your duo 😈'); } catch(e){ toast('Score: ' + score); } }
+});
+document.getElementById('copyBtn').addEventListener('click', async () => {
+  try { await navigator.clipboard.writeText(shareText() + ' ' + location.href); toast('Link + score copied!'); } catch(e){ toast('Copy failed'); }
+});
+
+// ---------- input ----------
+let locked = false;
+let mouseX = 0, mouseY = 0;   // fallback aim (unlocked / touch)
+function lockPointer(){        // raw input (no OS acceleration) when supported — pro-trainer standard
+  if (isTouch || !canvas.requestPointerLock) return;
+  try {
+    const r = canvas.requestPointerLock({ unadjustedMovement: true });
+    if (r && r.catch) r.catch(() => { try { canvas.requestPointerLock(); } catch(e){} });
+  } catch(e) { try { canvas.requestPointerLock(); } catch(e2){} }
+}
+document.addEventListener('pointerlockchange', () => {
+  locked = document.pointerLockElement === canvas;
+  if (!locked && state === 'play') { state = 'pause'; document.body.classList.add('menuMode'); show(pauseEl, true); }
+});
+window.addEventListener('mousemove', (e) => {
+  if (locked && (state === 'play' || state === 'count')) {
+    yaw   += e.movementX * sens * 0.0022;
+    pitch -= e.movementY * sens * 0.0022;
+    pitch = Math.max(-1.2, Math.min(1.2, pitch));
+  } else { mouseX = e.clientX; mouseY = e.clientY; }
+});
+window.addEventListener('contextmenu', (e) => e.preventDefault());
+
+function shoot(sx, sy){
+  if (state !== 'play' || modeSel === 'track') return;
+  shots++; shake = 1; sndShot();
+  const t = performance.now();
+  let hitIdx = -1, hitProj = null;
+  for (let i = 0; i < targets.length; i++) {
+    const tg = targets[i];
+    const p = project(tg.x, tg.y, tg.z);
+    if (!p) continue;
+    const r = p.s * tRad() * Math.min(1, tg.pop * 4 + 0.25);
+    const dx = p.x - sx, dy = p.y - sy;
+    if (dx*dx + dy*dy <= r*r) { hitIdx = i; hitProj = p; break; }
+  }
+  if (hitIdx >= 0) {
+    const tg = targets[hitIdx];
+    hits++; streak++; bestStreak = Math.max(bestStreak, streak);
+    reactSum += t - tg.born;
+    score += 100 + Math.min(streak, 20) * 10;
+    hitFlash = 1; sndHit();
+    document.getElementById('streakLine').textContent = streak >= 3 ? ('STREAK ×' + streak) : '';
+    for (let i = 0; i < 14; i++) {
+      const a = Math.random() * Math.PI * 2, sp2 = 60 + Math.random() * 240;
+      particles.push({ x: hitProj.x, y: hitProj.y, vx: Math.cos(a)*sp2, vy: Math.sin(a)*sp2, life: 1, h: 340 + Math.random()*40 });
+    }
+    rings.push({ x: hitProj.x, y: hitProj.y, r: hitProj.s * tRad(), life: 1 });
+    targets.splice(hitIdx, 1); addTarget();
+  } else {
+    streak = 0; missFlash = 1; sndMiss();
+    score = Math.max(0, score - 50);
+    document.getElementById('streakLine').textContent = '';
+  }
+  document.getElementById('scoreV').textContent = score;
+  document.getElementById('accV').textContent = (shots ? Math.round(hits / shots * 100) : 100) + '%';
+}
+window.addEventListener('mousedown', (e) => {
+  if (e.button !== 0) return;
+  if (e.target.closest('button') || e.target.closest('input')) return;
+  lmb = true;
+  if (state === 'play') shoot(locked ? W/2 : mouseX, locked ? H/2 : mouseY);
+});
+window.addEventListener('mouseup', (e) => { if (e.button === 0) lmb = false; });
+window.addEventListener('touchstart', (e) => {
+  if (e.target.closest('button') || e.target.closest('input')) return;
+  lmb = true;
+  if (state === 'play') { const t = e.touches[0]; shoot(t.clientX, t.clientY); }
+}, { passive: true });
+window.addEventListener('touchend', () => { lmb = false; });
+window.addEventListener('blur', () => { lmb = false; });
+window.addEventListener('keydown', (e) => {
+  if (e.code === 'Escape' && state === 'play') { /* pointerlockchange handles pause */ }
+});
+
+// ---------- main loop ----------
+let last = performance.now();
+function frame(t){
+  requestAnimationFrame(frame);
+  const dt = Math.min(0.05, (t - last) / 1000); last = t;
+
+  if (state === 'count') {
+    cdT += dt;
+    if (cdT >= 1) {
+      cdT = 0; cdVal--;
+      if (cdVal <= 0) { cdEl.textContent = 'GO!'; sndCd(true); setTimeout(beginPlay, 220); state = 'go'; }
+      else { cdEl.textContent = cdVal; sndCd(false); }
+    }
+  }
+  if (state === 'play') {
+    timeLeft -= dt;
+    document.getElementById('timeV').textContent = Math.max(0, timeLeft).toFixed(1);
+    if (timeLeft <= 0) endRun();
+    for (const tg of targets) tg.pop = Math.min(1, tg.pop + dt * 4);
+    if (modeSel === 'track' && targets.length) {
+      const el = RUN_TIME - timeLeft;
+      const spd2 = 1 + el / 90;
+      const tg = targets[0];
+      tg.x = trackPath.ax * Math.sin(trackPath.w1 * el * spd2 + trackPath.p1);
+      tg.y = 0.6 + trackPath.ay * Math.sin(trackPath.w2 * el * spd2 + trackPath.p2);
+      const p = project(tg.x, tg.y, tg.z);
+      const aimX = (locked || isTouch) ? W/2 : mouseX, aimY = (locked || isTouch) ? H/2 : mouseY;
+      let on = false;
+      if (p) { const dx = p.x - aimX, dy = p.y - aimY, rr = p.s * tRad(); on = dx*dx + dy*dy <= rr*rr; }
+      tg.on = on && lmb;
+      if (tg.on) {
+        onTime += dt; score = Math.floor(onTime * 100);
+        trackTick += dt;
+        if (trackTick > 0.25) { trackTick = 0; blip(880, 0.05, 'sine', 0.05); }
+        document.getElementById('scoreV').textContent = score;
+      }
+      document.getElementById('accV').textContent = Math.round(onTime / Math.max(0.01, el) * 100) + '%';
+      document.getElementById('streakLine').textContent = tg.on ? 'ON TARGET' : '';
+    }
+    if (modeSel === 'flick') {
+      for (let i = targets.length - 1; i >= 0; i--) {
+        if (t - targets[i].born > 1500) {
+          targets.splice(i, 1); addTarget();
+          streak = 0; missFlash = 1; sndMiss();
+          score = Math.max(0, score - 30);
+          document.getElementById('streakLine').textContent = '';
+          document.getElementById('scoreV').textContent = score;
+        }
+      }
+    }
+  }
+  shake = Math.max(0, shake - dt * 6);
+  hitFlash = Math.max(0, hitFlash - dt * 4);
+  missFlash = Math.max(0, missFlash - dt * 4);
+
+  // ===== render =====
+  ctx.save();
+  if (shake > 0.5) ctx.translate((Math.random()-0.5) * 6, (Math.random()-0.5) * 6);
+
+  const bg = ctx.createLinearGradient(0, 0, 0, H);
+  bg.addColorStop(0, '#070d18'); bg.addColorStop(0.55, '#04060c'); bg.addColorStop(1, '#080611');
+  ctx.fillStyle = bg; ctx.fillRect(-8, -8, W + 16, H + 16);
+
+  // room grid
+  ctx.lineWidth = 1.2;
+  for (const L of lines) {
+    const a = project(L[0], L[1], L[2]), b = project(L[3], L[4], L[5]);
+    if (!a || !b) continue;
+    ctx.globalAlpha = 0.16 * L[6];
+    ctx.strokeStyle = '#00ffc8';
+    ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
+  }
+  ctx.globalAlpha = 1;
+
+  // targets
+  if (state === 'play' || state === 'pause' || state === 'go') {
+    for (const tg of targets) {
+      const p = project(tg.x, tg.y, tg.z);
+      if (!p) continue;
+      const r = p.s * tRad() * Math.min(1, tg.pop * 4 + 0.25) * (0.9 + 0.1 * Math.sin(t / 180));
+      const tCol = tg.on ? '#00ffc8' : '#ff2d78';
+      ctx.shadowBlur = 24; ctx.shadowColor = tCol;
+      ctx.fillStyle = tCol;
+      ctx.beginPath(); ctx.arc(p.x, p.y, r, 0, 7); ctx.fill();
+      ctx.shadowBlur = 0;
+      ctx.fillStyle = '#ffffff';
+      ctx.beginPath(); ctx.arc(p.x, p.y, r * 0.42, 0, 7); ctx.fill();
+      ctx.strokeStyle = 'rgba(255,255,255,.65)'; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.arc(p.x, p.y, r * 0.72, 0, 7); ctx.stroke();
+    }
+  }
+
+  // hit rings
+  for (let i = rings.length - 1; i >= 0; i--) {
+    const rg = rings[i];
+    rg.life -= dt * 2.6; rg.r += 260 * dt;
+    if (rg.life <= 0) { rings.splice(i, 1); continue; }
+    ctx.globalAlpha = rg.life * 0.8;
+    ctx.strokeStyle = '#00ffc8'; ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.arc(rg.x, rg.y, rg.r, 0, 7); ctx.stroke();
+  }
+  // particles
+  for (let i = particles.length - 1; i >= 0; i--) {
+    const p = particles[i];
+    p.x += p.vx * dt; p.y += p.vy * dt; p.life -= dt * 2.2;
+    if (p.life <= 0) { particles.splice(i, 1); continue; }
+    ctx.globalAlpha = p.life;
+    ctx.fillStyle = 'hsl(' + p.h + ',100%,64%)';
+    ctx.beginPath(); ctx.arc(p.x, p.y, 3 * p.life, 0, 7); ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+
+  // crosshair (CS2-style)
+  if (state === 'play' || state === 'go' || state === 'count') {
+    const cx = (locked || isTouch) ? W/2 : mouseX, cy2 = (locked || isTouch) ? H/2 : mouseY;
+    const gap = 5 + shake * 6, len = 9, th = 2;
+    const xc = THEMES[themeIdx].c;
+    ctx.fillStyle = hitFlash > 0.4 ? '#ffffff' : xc;
+    ctx.shadowBlur = 6; ctx.shadowColor = xc;
+    ctx.fillRect(cx - gap - len, cy2 - th/2, len, th);
+    ctx.fillRect(cx + gap,       cy2 - th/2, len, th);
+    ctx.fillRect(cx - th/2, cy2 - gap - len, th, len);
+    ctx.fillRect(cx - th/2, cy2 + gap,       th, len);
+    ctx.shadowBlur = 0;
+    if (hitFlash > 0) {                     // hitmarker X
+      ctx.globalAlpha = hitFlash;
+      ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 2.5;
+      const m = 14;
+      ctx.beginPath();
+      ctx.moveTo(cx - m, cy2 - m); ctx.lineTo(cx - m/2, cy2 - m/2);
+      ctx.moveTo(cx + m, cy2 - m); ctx.lineTo(cx + m/2, cy2 - m/2);
+      ctx.moveTo(cx - m, cy2 + m); ctx.lineTo(cx - m/2, cy2 + m/2);
+      ctx.moveTo(cx + m, cy2 + m); ctx.lineTo(cx + m/2, cy2 + m/2);
+      ctx.stroke();
+      ctx.globalAlpha = 1;
+    }
+  }
+  if (missFlash > 0) {
+    ctx.fillStyle = 'rgba(255,30,60,' + (missFlash * 0.12) + ')';
+    ctx.fillRect(0, 0, W, H);
+  }
+  ctx.restore();
+}
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>
